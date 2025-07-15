@@ -15,6 +15,34 @@ document.getElementById("joinBtn").onclick = async () => {
 
   await startLocalStream();
   connectToWebSocket();
+
+  document.getElementById("joinBtn").disabled = true;
+  document.getElementById("leaveBtn").style.display = "inline-block";
+};
+
+document.getElementById("leaveBtn").onclick = () => {
+  leaveRoom();
+};
+
+document.getElementById("copyLinkBtn").onclick = () => {
+  const room = document.getElementById("roomInput").value.trim();
+  if (!room) {
+    alert("Enter Room ID first.");
+    return;
+  }
+
+  const url = `${window.location.origin}?room=${room}`;
+  navigator.clipboard.writeText(url);
+  alert("Invite link copied:\n" + url);
+};
+
+window.onload = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const room = urlParams.get("room");
+  if (room) {
+    document.getElementById("roomInput").value = room;
+    document.getElementById("joinBtn").click();
+  }
 };
 
 async function startLocalStream() {
@@ -36,7 +64,7 @@ async function startLocalStream() {
 }
 
 function connectToWebSocket() {
-  socket = new WebSocket("ws://localhost:8080/signal");
+  socket = new WebSocket("wss://r-project-yx0q.onrender.com/signal");
 
   socket.onopen = () => {
     console.log("WebSocket connected.");
@@ -54,20 +82,18 @@ function connectToWebSocket() {
     if (data.type === "notification") {
       document.getElementById("status").innerText = data.message;
 
-      // If a new peer joins, you are the first => send offer
       if (data.message.includes("joined")) {
         sendOffer();
       }
-	  if (data.message.includes("left")) {
-	    document.getElementById("status").innerText = data.message;
 
-	    // Clean up remote view
-	    if (peerConnection) {
-	      peerConnection.close();
-	      peerConnection = null;
-	    }
-	    document.getElementById("remoteVideo").srcObject = null;
-	  }
+      if (data.message.includes("left")) {
+        document.getElementById("status").innerText = data.message;
+        if (peerConnection) {
+          peerConnection.close();
+          peerConnection = null;
+        }
+        document.getElementById("remoteVideo").srcObject = null;
+      }
 
       return;
     }
@@ -144,9 +170,6 @@ async function sendOffer() {
     }
   }));
 }
-document.getElementById("leaveBtn").onclick = () => {
-  leaveRoom();
-};
 
 function leaveRoom() {
   if (socket && socket.readyState === WebSocket.OPEN) {
